@@ -1023,11 +1023,18 @@ void connection<config>::handle_read_handshake(lib::error_code const & ec,
         
         // We have the complete request. Process it.
         lib::error_code handshake_ec = this->process_handshake_request();
-        
+
+        // If the handshake succeeded and the response was deferred via
+        // defer_http_response(), don't write it now; it will be sent later
+        // via send_http_response(). This applies to both plain HTTP responses
+        // and successful WebSocket handshakes.
+        bool const deferred = !handshake_ec &&
+            m_http_state == session::http_state::deferred;
+
         // Write a response if this is a websocket connection or if it is an
         // HTTP connection for which the response has not been deferred or
         // started yet by a different system (i.e. still in init state).
-        if (!m_is_http || m_http_state == session::http_state::init) {
+        if (!deferred && (!m_is_http || m_http_state == session::http_state::init)) {
             this->write_http_response(handshake_ec);
         }
     } else {

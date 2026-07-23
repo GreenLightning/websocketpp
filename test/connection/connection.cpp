@@ -301,7 +301,47 @@ BOOST_AUTO_TEST_CASE( deferred_http_request ) {
     BOOST_CHECK_EQUAL(ostream.str(), output);
     con->send_http_response(ec);
     BOOST_CHECK_EQUAL(ec, make_error_code(websocketpp::error::invalid_state));
-    
+
+}
+
+BOOST_AUTO_TEST_CASE( deferred_websocket_handshake ) {
+    std::string input = "GET / HTTP/1.1\r\nHost: www.example.com\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nOrigin: http://www.example.com\r\n\r\n";
+    std::string output = "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\nServer: ";
+    output+=websocketpp::user_agent;
+    output+="\r\nUpgrade: websocket\r\n\r\n";
+
+    server s;
+    server::connection_ptr con;
+
+    s.clear_access_channels(websocketpp::log::alevel::all);
+    s.clear_error_channels(websocketpp::log::elevel::all);
+
+    std::stringstream ostream;
+    s.register_ostream(&ostream);
+
+    con = s.get_connection();
+    con->start();
+
+    // Defer the response before the upgrade request is processed. (A real
+    // application would typically do this from its validate handler.)
+    websocketpp::lib::error_code ec = con->defer_http_response();
+    BOOST_CHECK_EQUAL(ec, websocketpp::lib::error_code());
+    BOOST_CHECK_EQUAL(ostream.str(), "");
+
+    // Processing the websocket handshake must NOT write the 101 response
+    // while it is deferred.
+    con->read_some(input.data(),input.size());
+    BOOST_CHECK_EQUAL(ostream.str(), "");
+
+    // Sending the deferred response now writes the 101 handshake and opens
+    // the connection.
+    con->send_http_response(ec);
+    BOOST_CHECK_EQUAL(ec, websocketpp::lib::error_code());
+    BOOST_CHECK_EQUAL(ostream.str(), output);
+
+    // A second attempt to send the response should fail.
+    con->send_http_response(ec);
+    BOOST_CHECK_EQUAL(ec, make_error_code(websocketpp::error::invalid_state));
 }
 
 BOOST_AUTO_TEST_CASE( request_no_server_header ) {
