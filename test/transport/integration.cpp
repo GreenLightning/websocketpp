@@ -28,6 +28,16 @@
 #define BOOST_TEST_MODULE transport_integration
 #include <boost/test/unit_test.hpp>
 
+#ifdef _WIN32
+#include <chrono>
+#include <thread>
+static void sleep(unsigned int seconds) {
+    std::this_thread::sleep_for(std::chrono::seconds(seconds));
+}
+#else
+#include <unistd.h>
+#endif
+
 #include <websocketpp/common/thread.hpp>
 
 #include <websocketpp/config/core.hpp>

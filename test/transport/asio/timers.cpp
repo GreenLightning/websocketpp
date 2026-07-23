@@ -31,6 +31,16 @@
 #include <exception>
 #include <iostream>
 
+#ifdef _WIN32
+#include <chrono>
+#include <thread>
+static void sleep(unsigned int seconds) {
+    std::this_thread::sleep_for(std::chrono::seconds(seconds));
+}
+#else
+#include <unistd.h>
+#endif
+
 #include <websocketpp/common/thread.hpp>
 
 #include <websocketpp/transport/asio/endpoint.hpp>
